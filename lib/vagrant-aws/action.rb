@@ -11,9 +11,15 @@ module VagrantPlugins
       # This action is called to terminate the remote machine.
       def self.action_destroy
         Vagrant::Action::Builder.new.tap do |b|
-          b.use ConfigValidate
-          b.use ConnectAWS
-          b.use TerminateInstance
+          b.use Call, DestroyConfirm do |env, b2|
+            if env[:result]
+              b2.use ConfigValidate
+              b2.use ConnectAWS
+              b2.use TerminateInstance
+            else
+              b2.use MessageWillNotDestroy
+            end
+          end
         end
       end
 
@@ -87,6 +93,7 @@ module VagrantPlugins
       # This action is called to bring the box up from nothing.
       def self.action_up
         Vagrant::Action::Builder.new.tap do |b|
+          b.use HandleBoxUrl
           b.use ConfigValidate
           b.use ConnectAWS
           b.use Call, IsCreated do |env, b2|
@@ -109,6 +116,7 @@ module VagrantPlugins
       autoload :IsCreated, action_root.join("is_created")
       autoload :MessageAlreadyCreated, action_root.join("message_already_created")
       autoload :MessageNotCreated, action_root.join("message_not_created")
+      autoload :MessageWillNotDestroy, action_root.join("message_will_not_destroy")
       autoload :ReadSSHInfo, action_root.join("read_ssh_info")
       autoload :ReadState, action_root.join("read_state")
       autoload :RunInstance, action_root.join("run_instance")

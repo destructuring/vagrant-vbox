@@ -1,3 +1,19 @@
+# 0.3.0 (September 2, 2013)
+
+* Parallelize multi-machine up on Vagrant 1.2+
+* Show proper configuration errors if an invalid configuration key
+  is used.
+* Request confirmation on `vagrant destroy`, like normal VirtualBox + Vagrant.
+* If user data is configured, output is shown on "vagrant up" that
+  it is being set.
+* Add EIP support (GH #65)
+* Add block device mapping support (GH #93)
+* README improvements (GH #120)
+* Fix missing locale message (GH #73)
+* SyncFolders creates hostpath if it doesn't exist and `:create` option is set (GH #17)
+* Add IAM Instance Profile support (GH #68)
+* Add shutdown behavior support (GH #125,#131)
+
 # 0.2.2 (April 18, 2013)
 
 * Fix crashing bug with incorrect provisioner arguments.

@@ -108,6 +108,10 @@ This provider exposes quite a few provider-specific configuration options:
 * `security_groups` - An array of security groups for the instance. If this
   instance will be launched in VPC, this must be a list of security group
   IDs.
+* `iam_instance_profile_arn` - The Amazon resource name (ARN) of the IAM Instance
+    Profile to associate with the instance
+* `iam_instance_profile_name` - The name of the IAM Instance Profile to associate
+  with the instance
 * `subnet_id` - The subnet to boot the instance into, for VPC.
 * `tags` - A hash of tags to set on the machine.
 * `use_iam_profile` - If true, will use [IAM profiles](http://docs.aws.amazon.com/IAM/latest/UserGuide/instance-profiles.html)
@@ -173,6 +177,43 @@ the remote machine over SSH.
 This is good enough for all built-in Vagrant provisioners (shell,
 chef, and puppet) to work!
 
+## Other Examples
+
+### Tags
+
+To use tags, simply define a hash of key/value for the tags you want to associate to your instance, like:
+
+```ruby
+Vagrant.configure("2") do |config|
+  # ... other stuff
+
+  config.vm.provider "aws" do |aws|
+    aws.tags = {
+	  'Name' => 'Some Name',
+	  'Some Key' => 'Some Value'
+    }
+  end
+end
+```
+
+### User data
+
+You can specify user data for the instance being booted.
+
+```ruby
+Vagrant.configure("2") do |config|
+  # ... other stuff
+
+  config.vm.provider "aws" do |aws|
+    # Option 1: a single string
+    aws.user_data = "#!/bin/bash\necho 'got user data' > /tmp/user_data.log\necho"
+
+    # Option 2: use a file
+    aws.user_data = File.read("user_data.txt")
+  end
+end
+```
+
 ## Development
 
 To work on the `vagrant-aws` plugin, clone this repository out, and use
@@ -191,8 +232,11 @@ $ bundle exec rake
 If those pass, you're ready to start developing the plugin. You can test
 the plugin without installing it into your Vagrant environment by just
 creating a `Vagrantfile` in the top level of this directory (it is gitignored)
-that uses it, and uses bundler to execute Vagrant:
-
+and add the following line to your `Vagrantfile` 
+```ruby
+Vagrant.require_plugin "vagrant-aws"
+```
+Use bundler to execute Vagrant:
 ```
 $ bundle exec vagrant up --provider=aws
 ```

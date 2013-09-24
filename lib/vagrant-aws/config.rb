@@ -39,6 +39,11 @@ module VagrantPlugins
       # @return [String]
       attr_accessor :private_ip_address
 
+      # Acquire and attach an elastic IP address (VPC).
+      #
+      # @return [Boolean]
+      attr_accessor :elastic_ip
+
       # The name of the AWS region in which to create the instance.
       #
       # @return [String]
@@ -65,6 +70,18 @@ module VagrantPlugins
       # @return [Array<String>]
       attr_accessor :security_groups
 
+      # The Amazon resource name (ARN) of the IAM Instance Profile
+      # to associate with the instance.
+      #
+      # @return [String]
+      attr_accessor :iam_instance_profile_arn
+
+      # The name of the IAM Instance Profile to associate with
+      # the instance.
+      #
+      # @return [String]
+      attr_accessor :iam_instance_profile_name
+
       # The subnet ID to launch the machine into (VPC).
       #
       # @return [String]
@@ -86,23 +103,38 @@ module VagrantPlugins
       # @return [String]
       attr_accessor :user_data
 
+      # Block device mappings
+      #
+      # @return [Array<Hash>]
+      attr_accessor :block_device_mapping
+
+      # Indicates whether an instance stops or terminates when you initiate shutdown from the instance
+      #
+      # @return [bool]
+      attr_accessor :terminate_on_shutdown
+
       def initialize(region_specific=false)
-        @access_key_id      = UNSET_VALUE
-        @ami                = UNSET_VALUE
-        @availability_zone  = UNSET_VALUE
+        @access_key_id          = UNSET_VALUE
+        @ami                    = UNSET_VALUE
+        @availability_zone      = UNSET_VALUE
         @instance_ready_timeout = UNSET_VALUE
-        @instance_type      = UNSET_VALUE
-        @keypair_name       = UNSET_VALUE
-        @private_ip_address = UNSET_VALUE
-        @region             = UNSET_VALUE
-        @endpoint           = UNSET_VALUE
-        @version            = UNSET_VALUE
-        @secret_access_key  = UNSET_VALUE
-        @security_groups    = UNSET_VALUE
-        @subnet_id          = UNSET_VALUE
-        @tags               = {}
-        @user_data          = UNSET_VALUE
-        @use_iam_profile    = UNSET_VALUE
+        @instance_type          = UNSET_VALUE
+        @keypair_name           = UNSET_VALUE
+        @private_ip_address     = UNSET_VALUE
+        @region                 = UNSET_VALUE
+        @endpoint               = UNSET_VALUE
+        @version                = UNSET_VALUE
+        @secret_access_key      = UNSET_VALUE
+        @security_groups        = UNSET_VALUE
+        @subnet_id              = UNSET_VALUE
+        @tags                   = {}
+        @user_data              = UNSET_VALUE
+        @use_iam_profile        = UNSET_VALUE
+        @block_device_mapping   = []
+        @elastic_ip             = UNSET_VALUE
+        @iam_instance_profile_arn  = UNSET_VALUE
+        @iam_instance_profile_name = UNSET_VALUE
+        @terminate_on_shutdown  = UNSET_VALUE
 
         # Internal state (prefix with __ so they aren't automatically
         # merged)
@@ -169,6 +201,10 @@ module VagrantPlugins
           # Merge in the tags
           result.tags.merge!(self.tags)
           result.tags.merge!(other.tags)
+
+          # Merge block_device_mapping
+          result.block_device_mapping |= self.block_device_mapping
+          result.block_device_mapping |= other.block_device_mapping
         end
       end
 
@@ -193,6 +229,9 @@ module VagrantPlugins
         # Default the private IP to nil since VPC is not default
         @private_ip_address = nil if @private_ip_address == UNSET_VALUE
 
+        # Acquire an elastic IP if requested
+        @elastic_ip = nil if @elastic_ip == UNSET_VALUE
+
         # Default region is us-east-1. This is sensible because AWS
         # generally defaults to this as well.
         @region = "us-east-1" if @region == UNSET_VALUE
@@ -206,11 +245,18 @@ module VagrantPlugins
         # Subnet is nil by default otherwise we'd launch into VPC.
         @subnet_id = nil if @subnet_id == UNSET_VALUE
 
+        # IAM Instance profile arn/name is nil by default.
+        @iam_instance_profile_arn   = nil if @iam_instance_profile_arn  == UNSET_VALUE
+        @iam_instance_profile_name  = nil if @iam_instance_profile_name == UNSET_VALUE
+
         # By default we don't use an IAM profile
         @use_iam_profile = false if @use_iam_profile == UNSET_VALUE
 
         # User Data is nil by default
         @user_data = nil if @user_data == UNSET_VALUE
+
+        # default false
+        @terminate_on_shutdown = false if @terminate_on_shutdown == UNSET_VALUE
 
         # Compile our region specific configurations only within
         # NON-REGION-SPECIFIC configurations.
@@ -238,7 +284,7 @@ module VagrantPlugins
       end
 
       def validate(machine)
-        errors = []
+        errors = _detected_errors
 
         errors << I18n.t("vagrant_aws.config.region_required") if @region.nil?
 
