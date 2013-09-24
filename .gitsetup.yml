@@ -1,5 +1,5 @@
 ---
 remotes:
   vendor: https://github.com/mitchellh/vagrant-aws
-  primary: git@github.com:destructuring/tgnargav-aws
-  secondary: git@bitbucket.org:destructuring/tgnargav-aws
+  primary: git@github.com:destructuring/tnargav-aws
+  secondary: git@bitbucket.org:destructuring/tnargav-aws
