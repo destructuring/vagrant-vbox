@@ -1,3 +1,13 @@
+# 0.4.0 (October 11, 2013)
+
+* Handle EIP allocation error (GH #134)
+* Implement halt and reload (GH #31)
+* rsync ignores Vagrantfile
+* warn if none of the security groups allows incoming SSH
+* bump fog.io to 0.15.0
+* Fix rsync on windows (GH #77)
+* Add `ssh_host_attribute` config (GH #143)
+
 # 0.3.0 (September 2, 2013)
 
 * Parallelize multi-machine up on Vagrant 1.2+

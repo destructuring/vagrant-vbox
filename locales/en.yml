@@ -1,7 +1,7 @@
 en:
   vagrant_aws:
-    already_created: |-
-      The machine is already created.
+    already_status: |-
+      The machine is already %{status}.
     launching_instance: |-
       Launching an instance with the following settings...
     launch_no_keypair: |-
@@ -16,8 +16,15 @@ en:
       Instance is not created. Please run `vagrant up` first.
     ready: |-
       Machine is booted and ready for use!
+    rsync_not_found_warning: |-
+      Warning! Folder sync disabled because the rsync binary is missing.
+      Make sure rsync is installed and the binary can be found in the PATH.
     rsync_folder: |-
       Rsyncing folder: %{hostpath} => %{guestpath}
+    starting: |-
+      Starting the instance...
+    stopping: |-
+      Stopping the instance...
     terminating: |-
       Terminating the instance...
     waiting_for_ready: |-
@@ -28,6 +35,9 @@ en:
       Warning! The AWS provider doesn't support any of the Vagrant
       high-level network configurations (`config.vm.network`). They
       will be silently ignored.
+    warn_ssh_access: |-
+      Warning! Vagrant might not be able to SSH into the instance.
+      Please check your security groups settings.
     will_not_destroy: |-
       The instance '%{name}' will not be destroyed, since the confirmation
       was declined.
@@ -80,6 +90,22 @@ en:
         not created
       long_not_created: |-
         The EC2 instance is not created. Run `vagrant up` to create it.
+
+      short_stopped: |-
+        stopped
+      long_stopped: |-
+        The EC2 instance is stopped. Run `vagrant up` to start it.
+
+      short_stopping: |-
+        stopping
+      long_stopping: |-
+        The EC2 instance is stopping. Wait until is completely stopped to 
+        run `vagrant up` and start it.
+
+      short_pending: |-
+        pending
+      long_pending: |-
+        The EC2 instance is pending a start (i.e. this is a transition state).
 
       short_running: |-
         running

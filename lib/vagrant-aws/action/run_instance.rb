@@ -69,25 +69,27 @@ module VagrantPlugins
           env[:ui].info(" -- Block Device Mapping: #{block_device_mapping}") if block_device_mapping
           env[:ui].info(" -- Terminate On Shutdown: #{terminate_on_shutdown}")
 
+          options = {
+            :availability_zone         => availability_zone,
+            :flavor_id                 => instance_type,
+            :image_id                  => ami,
+            :key_name                  => keypair,
+            :private_ip_address        => private_ip_address,
+            :subnet_id                 => subnet_id,
+            :iam_instance_profile_arn  => iam_instance_profile_arn,
+            :iam_instance_profile_name => iam_instance_profile_name,
+            :tags                      => tags,
+            :user_data                 => user_data,
+            :block_device_mapping      => block_device_mapping,
+            :instance_initiated_shutdown_behavior => terminate_on_shutdown == true ? "terminate" : nil
+          }
+          if !security_groups.empty?
+            security_group_key = options[:subnet_id].nil? ? :groups : :security_group_ids
+            options[security_group_key] = security_groups
+          end
+
           begin
-            options = {
-              :availability_zone  => availability_zone,
-              :flavor_id          => instance_type,
-              :image_id           => ami,
-              :key_name           => keypair,
-              :private_ip_address => private_ip_address,
-              :subnet_id          => subnet_id,
-              :iam_instance_profile_arn   => iam_instance_profile_arn,
-              :iam_instance_profile_name  => iam_instance_profile_name,
-              :tags               => tags,
-              :user_data          => user_data,
-              :block_device_mapping => block_device_mapping,
-              :instance_initiated_shutdown_behavior => terminate_on_shutdown == true ? "terminate" : nil
-            }
-            if !security_groups.empty?
-              security_group_key = options[:subnet_id].nil? ? :groups : :security_group_ids
-              options[security_group_key] = security_groups
-            end
+            env[:ui].warn(I18n.t("vagrant_aws.warn_ssh_access")) unless allows_ssh_port?(env, security_groups, subnet_id)
 
             server = env[:aws_compute].servers.create(options)
           rescue Fog::Compute::AWS::NotFound => e
@@ -174,35 +176,53 @@ module VagrantPlugins
           end
         end
 
+        def allows_ssh_port?(env, test_sec_groups, is_vpc)
+          port = 22 # TODO get ssh_info port
+          test_sec_groups = [ "default" ] if test_sec_groups.empty? # AWS default security group
+          # filter groups by name or group_id (vpc)
+          groups = test_sec_groups.map do |tsg|
+            env[:aws_compute].security_groups.all.select { |sg| tsg == (is_vpc ? sg.group_id : sg.name) }
+          end.flatten
+          # filter TCP rules
+          rules = groups.map { |sg| sg.ip_permissions.select { |r| r["ipProtocol"] == "tcp" } }.flatten
+          # test if any range includes port
+          !rules.select { |r| (r["fromPort"]..r["toPort"]).include?(port) }.empty?
+        end
+
         def do_elastic_ip(env, domain, server)
+          begin
             allocation = env[:aws_compute].allocate_address(domain)
-            if allocation.body['publicIp'].nil?
-              @logger.debug("Could not allocate Elastic IP.")
-              return nil
-            end
-            @logger.debug("Public IP #{allocation.body['publicIp']}")
+          rescue
+            @logger.debug("Could not allocate Elastic IP.")
+            terminate(env)
+            raise Errors::FogError,
+                            :message => "Could not allocate Elastic IP."
+          end
+          @logger.debug("Public IP #{allocation.body['publicIp']}")
 
-            # Associate the address and save the metadata to a hash
-            if domain == 'vpc'
-              # VPC requires an allocation ID to assign an IP
-              association = env[:aws_compute].associate_address(server.id, nil, nil, allocation.body['allocationId'])
-              h = { :allocation_id => allocation.body['allocationId'], :association_id => association.body['associationId'], :public_ip => allocation.body['publicIp'] }
-            else
-              # Standard EC2 instances only need the allocated IP address
-              association = env[:aws_compute].associate_address(server.id, allocation.body['publicIp'])
-              h = { :public_ip => allocation.body['publicIp'] }
-            end
+          # Associate the address and save the metadata to a hash
+          if domain == 'vpc'
+            # VPC requires an allocation ID to assign an IP
+            association = env[:aws_compute].associate_address(server.id, nil, nil, allocation.body['allocationId'])
+            h = { :allocation_id => allocation.body['allocationId'], :association_id => association.body['associationId'], :public_ip => allocation.body['publicIp'] }
+          else
+            # Standard EC2 instances only need the allocated IP address
+            association = env[:aws_compute].associate_address(server.id, allocation.body['publicIp'])
+            h = { :public_ip => allocation.body['publicIp'] }
+          end
 
-            if !association.body['return']
-              @logger.debug("Could not associate Elastic IP.")
-              return nil
-            end
+          unless association.body['return']
+            @logger.debug("Could not associate Elastic IP.")
+            terminate(env)
+            raise Errors::FogError,
+                            :message => "Could not allocate Elastic IP."
+          end
 
-            # Save this IP to the data dir so it can be released when the instance is destroyed
-            ip_file = env[:machine].data_dir.join('elastic_ip')
-            ip_file.open('w+') do |f|
-              f.write(h.to_json)
-            end
+          # Save this IP to the data dir so it can be released when the instance is destroyed
+          ip_file = env[:machine].data_dir.join('elastic_ip')
+          ip_file.open('w+') do |f|
+            f.write(h.to_json)
+          end
         end
 
         def terminate(env)
