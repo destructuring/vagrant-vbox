@@ -9,7 +9,7 @@
 .bundle
 pkg/*
 tags
-Gemfile.lock
+/vendor/bundle
 
 # Vagrant
 .vagrant
